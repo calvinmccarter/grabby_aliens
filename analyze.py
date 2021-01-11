@@ -15,31 +15,31 @@ parser.add_argument('--c', type=float, default=1.0)
 parser.add_argument('--L', type=float, default=1.0)
 parser.add_argument('--s', type=float, default=1.0)
 parser.add_argument('--seed', type=float, default=0)
+parser.add_argument('--empty_samples', type=int, default=0)
 
 args = parser.parse_args()
-D,n,N,s,c,L,seed = args.D,args.n,int(float(args.N)),args.s,args.c,args.L,args.seed
+D,n,N,s,c,L,seed,empty_samples = args.D,args.n,int(float(args.N)),args.s,args.c,args.L,args.seed,args.empty_samples
 if s != 1.0:
     print('WARNING: s!=1.0 so graph titles are misleading')
 
 fname = f'D={D}_n={n}_N={N:.2e}_L={L}_c={c}_seed={seed}'
-subprocess.check_output(f'g++ -std=c++17 -O3 -Wall -Werror -Wextra -Wshadow -Wno-sign-compare simulate.cc && ./a.out {D} {n} {N} {s} {c} {L} {fname} {seed}', shell=True)
+subprocess.check_output(f'g++ -std=c++17 -O3 -Wall -Werror -Wextra -Wshadow -Wno-sign-compare simulate.cc && ./a.out {D} {n} {N} {s} {c} {L} {fname} {seed} {empty_samples}', shell=True)
 
 print(f'{fname}.csv')
 
-XYTW = []
 XT = []
 T = []
 W = []
 A = []
+E = []
 with open(f'{fname}.csv') as csvfile:
     reader = csv.DictReader(csvfile)
     for row in reader:
         T.append(float(row['OriginTime']))
-        W.append(float(row['MinWait']))
+        W.append(float(row['MinArrival']))
         A.append(float(row['MaxAngle']))
+        E.append(float(row['PctEmpty']))
         XT.append((float(row['X']), float(row['OriginTime'])))
-        if D>=2:
-            XYTW.append((float(row['X']), float(row['Y']), float(row['OriginTime']), float(row['MinWait'])))
 
 YT = []
 YW = []
@@ -53,6 +53,8 @@ T50 = np.median(T)
 TS = [x/T50 for x in T]
 WS = [x/T50 for x in W]
 
+print(np.mean(E))
+
 fig, p = plt.subplots(3,2)
 fig.suptitle(f'D={D} n={n} N={N:.2e} L={L} |C|={len(TS)} |C|/L^D={len(TS)/L**D}')
 
@@ -61,7 +63,7 @@ p[0,0].set_ylabel('OriginTime')
 p[0,0].set_xlabel('Index')
 
 p[1,0].plot(sorted(WS))
-p[1,0].set_ylabel('MinWait')
+p[1,0].set_ylabel('MinArrival')
 p[1,0].set_xlabel('Index')
 
 p[2,0].plot(sorted(A))
@@ -75,6 +77,10 @@ p[0,1].set_xlabel('Index')
 p[1,1].plot(sorted(YW))
 p[1,1].set_ylabel('WaitTime (BYr)')
 p[1,1].set_xlabel('Index')
+
+p[2,1].plot(list(reversed(sorted(E))))
+p[2,1].set_ylabel('% Empty')
+p[2,1].set_xlabel('Index')
 
 plt.savefig(f'{fname}.png')
 subprocess.check_output(f'cmd.exe /C start {fname}.png', shell=True)
