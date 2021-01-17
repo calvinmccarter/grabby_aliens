@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <fstream>
 #include <queue>
+#include <tuple>
 using namespace std;
 using ll = int64_t;
 using ld = long double;
@@ -28,7 +29,6 @@ struct SortedRNG {
     LnCurMax += log(r01())/I;
     I--;
     ld ans = exp(LnCurMax);
-    //cerr << setprecision(30) << LnCurMax << " " << ans << endl;
     return ans;
   }
   ll I;
@@ -69,8 +69,9 @@ ostream& operator<<(ostream& o, const Civ& C) {
   return o;
 }
 
-// Between every pair of points i,j is a Euclidean distance of di,j = ((xi-xj)2 + (yi-yj)2 + (zi-zj)2)1/2.
-// Use “hypertorus” distance metric, that identifies opposite sides of box [0,1]d. (Can calc via, instead of dx = xi-xj, use (let a = abs(xi-xj), if a < ½, use a, else use 1-a).
+// Between every pair of points i,j is a Euclidean distance of dij = sqrt((xi-xj)^2 + (yi-yj)^2 + (zi-zj)^2)
+// Use “hypertorus” distance metric, that identifies opposite sides of box [0,L]^D.
+// i.e. instead of "dx=xi-xj", use "dx=abs(xi-xj); dx=min(dx,L-dx)"
 ld distance2(const vector<ld>& A, const vector<ld>& B, ld L) {
   ld d2 = 0.0;
   for(ll i=0; i<A.size(); i++) {
@@ -93,7 +94,7 @@ vector<ld> ratio_distribution(const vector<ld>& NUM, const vector<ld>& DEN) {
     assert(DEN[i] < DEN[i+1]);
   }
   for(ll i=0; i+1<NUM.size(); i++) {
-    assert(NUM[i] < NUM[i+1]);
+    assert(NUM[i] <= NUM[i+1]);
   }
 
   using Element = pair<ld,pair<ll,ll>>;
@@ -110,8 +111,8 @@ vector<ld> ratio_distribution(const vector<ld>& NUM, const vector<ld>& DEN) {
     Element x = Q.top(); Q.pop();
     ll di = x.second.first;
     ll ni = x.second.second;
+    // Only sample every kth element, to save memory
     if(ai%k==0) {
-      //cerr << "DEBUG: " << x.first << " " << NUM[ni] << " " << DEN[di] << " di=" << di << " DEN.size=" << DEN.size() << endl;
       ANS.push_back(x.first);
     }
     ai++;
@@ -126,47 +127,59 @@ vector<ld> ratio_distribution(const vector<ld>& NUM, const vector<ld>& DEN) {
 
   assert(NUM.size()<=ANS.size() && ANS.size()<=NUM.size()+1);
   for(ll i=0; i+1<ANS.size(); i++) {
-    assert(ANS[i]<ANS[i+1]);
+    assert(ANS[i]<=ANS[i+1]);
   }
   return ANS;
 }
 
-vector<pair<ld,ld>> to_years(const vector<Civ>& C) {
+vector<tuple<ld,ld,ld>> to_years(const vector<Civ>& C) {
   for(ll i=0; i+1<C.size(); i++) {
     assert(C[i].T < C[i+1].T);
   }
   vector<ld> N_ORIGIN;
   vector<ld> N_WAIT;
+  vector<ld> N_SEE;
   vector<ld> DEN;
   for(ll i=0; i<C.size(); i++) {
     ld real_t = cube(C[i].T);
     ld real_arrival = cube(C[i].min_arrival);
+    ld real_see = cube(C[i].min_see);
     ld wait = (real_arrival - real_t) / 2.0;
+    ld wait_see = max(static_cast<ld>(0.0), real_see - real_t);
 
     N_ORIGIN.push_back(real_t);
     N_WAIT.push_back(wait);
+    N_SEE.push_back(wait_see);
     if(C[i].nsee == 0) {
       DEN.push_back(real_t);
     }
   }
   
   sort(N_WAIT.begin(), N_WAIT.end());
+  sort(N_SEE.begin(), N_SEE.end());
   vector<ld> ORIGIN_YEARS = ratio_distribution(N_ORIGIN, DEN);
   vector<ld> WAIT_YEARS = ratio_distribution(N_WAIT, DEN);
+  vector<ld> SEE_YEARS = ratio_distribution(N_SEE, DEN);
   assert(ORIGIN_YEARS.size() == WAIT_YEARS.size());
-  vector<pair<ld,ld>> ANS;
+  assert(ORIGIN_YEARS.size() == SEE_YEARS.size());
+  vector<tuple<ld,ld,ld>> ANS;
   for(ll i=0; i<ORIGIN_YEARS.size(); i++) {
-    ANS.push_back(make_pair(ORIGIN_YEARS[i], WAIT_YEARS[i]));
+    ANS.push_back(make_tuple(ORIGIN_YEARS[i], WAIT_YEARS[i], SEE_YEARS[i]));
   }
   return ANS;
 }
 
 vector<Civ> simulate(ll D, ld speed, ld n, ll N, ld c, ld L, ll empty_samples) {
-  /*
+  /* This is a simpler way of generating the candidate civs.
+     Instead, I generate them one-by-one by generating the origin times already in sorted
+     order (see SortedRNG for more details on this).
+
   vector<Civ> C;
   C.reserve(N);
   for(ll i=0; i<N; i++) {
-    C.push_back(Civ::mk_random(D, n, L));
+    C.push_back(Civ(D));
+    C[i].V = Civ::random_point(D, L);
+    C[i].T = r01();
   }
   sort(C.begin(), C.end(), [](Civ& A, Civ& B) { return A.T < B.T; });
   */
@@ -285,11 +298,11 @@ int main(int, char** argv) {
   }
   civ_out.close();
 
-  vector<pair<ld,ld>> years = to_years(CIVS);
-  std::ofstream year_out (fname+"_years.txt", std::ofstream::out);
-  year_out << "OriginTime,MinWait" << endl;
+  vector<tuple<ld,ld,ld>> years = to_years(CIVS);
+  std::ofstream year_out (fname+"_years.csv", std::ofstream::out);
+  year_out << "OriginTime,MinWait,MinSETI" << endl;
   for(auto& y : years) {
-    year_out << y.first << "," << y.second << endl;
+    year_out << get<0>(y) << "," << get<1>(y) << "," << get<2>(y) << endl;
   }
   year_out.close();
 }
