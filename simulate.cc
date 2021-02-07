@@ -243,7 +243,6 @@ vector<Civ> simulate(ll D, ld speed, ld n, ll N, ld c, ld L, ll empty_samples, l
   */
 
   SortedRNG R(N);
-  ld pi = 3.141592653589793238462643383279502884L;
   ll last_alive = 0;
   vector<Civ> ALIVE;
   for(ll i=0; i<N; i++) {
