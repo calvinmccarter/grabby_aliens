@@ -46,6 +46,7 @@ for c in cs:
         # Read CIV data
         with open(f'{fname}_civs.csv') as csvfile:
             CIVS = list(csv.DictReader(csvfile))
+        print(f'{len(CIVS)} CIVS survived')
 
         # Read years data
         with open(f'{fname}_years.csv') as yearfile:
@@ -61,7 +62,8 @@ c_str = ','.join([str(c) for c,n in DATA.keys()])
 def getLabels():
     return ['Origin', 'MinArrival', 'MinSee',
             'Origin (Gyr)', 'MinTillMeet (Gyr)', 'MinTillSee (Gyr)',
-            'MaxAngle', '% Empty', 'Volume (Points)', 'Volume (Radii)']
+            'MaxAngle', 'Angular Border',
+            '% Empty', 'Volume (Points)', 'Volume (Radii)']
 
 def getData(CIVS, YEARS, label):
     civs_x = [float(i)/len(CIVS) for i in range(len(CIVS))]
@@ -89,6 +91,9 @@ def getData(CIVS, YEARS, label):
     elif label == 'MaxAngle':
         x = civs_x
         y = sorted([float(row['MaxAngle']) for row in CIVS])
+    elif label == 'Angular Border':
+        x = civs_x
+        y = sorted([float(row['AngularBorder']) for row in CIVS])
     elif label == '% Empty':
         x = civs_x
         y = list(reversed(sorted([float(row['PctEmpty']) for row in CIVS])))
@@ -112,6 +117,9 @@ def getData(CIVS, YEARS, label):
     elif label == 'R4':
         x = civs_x
         y = sorted([float(row['R4']) for row in CIVS])
+    elif label == 'Number Seen':
+        x = civs_x
+        y = sorted([float(row['NumberSeen']) for row in CIVS])
     else:
         assert False, f'Unknown label={label}'
     return (x,y)
@@ -190,7 +198,9 @@ for i,c in enumerate(cs):
     plot(p[1,i+1], 'MinTillMeet (Gyr)', c, log=True)
     # Omitted for space
     #plot(p[2,i+1], 'MinSee', c, log=False)
-    plot(p[2,i+1], 'MinTillSee (Gyr)', c, log=True)
+    #plot(p[2,i+1], 'MinTillSee (Gyr)', c, log=True)
+    #plot(p[2, i+1], 'Angular Border', c, log=False)
+    plot(p[2, i+1], 'Number Seen', c, log=False)
     plot(p[3,i+1], 'MaxAngle', c, log=False)
 
 plot(p[0,len(cs)+1], 'R1', cs[0], log=True)
